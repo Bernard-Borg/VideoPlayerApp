@@ -2,56 +2,25 @@
     "build": {
         "beforeDevCommand": "yarn dev",
         "beforeBuildCommand": "yarn build",
-        "devPath": "http://localhost:49155",
-        "distDir": "../dist",
-        "withGlobalTauri": false
+        "frontendDist": "../dist",
+        "devUrl": "http://localhost:49155"
     },
-    "package": {
-        "productName": "VideoVish",
-        "version": "2.1.3"
-    },
-    "tauri": {
-        "allowlist": {
-            "dialog": {
-                "open": true,
-                "save": true
-            },
-            "fs": {
-                "exists": true,
-                "scope": ["$APPDATA", "$APPDATA/*"]
-            },
-            "path": {
-                "all": true
-            },
-            "window": {
-                "all": true
-            },
-            "shell": {
-                "all": true
-            },
-            "protocol": {
-                "asset": true,
-                "assetScope": ["**"]
+    "bundle": {
+        "active": true,
+        "externalBin": ["binaries/yt-dlp", "binaries/ffmpeg"],
+        "targets": "all",
+        "windows": {
+            "webviewInstallMode": {
+                "type": "embedBootstrapper"
             }
         },
-        "bundle": {
-            "active": true,
-            "externalBin": ["binaries/yt-dlp", "binaries/ffmpeg"],
-            "targets": "all",
-            "identifier": "borg.videovish",
-            "icon": [
-                "icons/32x32.png",
-                "icons/128x128.png",
-                "icons/128x128@2x.png",
-                "icons/icon.icns",
-                "icons/icon.ico"
-            ],
-            "windows": {
-                "webviewInstallMode": {
-                    "type": "embedBootstrapper"
-                }
-            }
-        },
+        "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+    },
+    "productName": "VideoVish",
+    "mainBinaryName": "VideoVish",
+    "version": "2.1.4",
+    "identifier": "borg.videovish",
+    "plugins": {
         "cli": {
             "args": [
                 {
@@ -60,9 +29,16 @@
                     "takesValue": true
                 }
             ]
-        },
+        }
+    },
+    "app": {
+        "withGlobalTauri": false,
         "security": {
-            "csp": "default-src 'self'; connect-src https://videovish.vercel.app 'self'; script-src 'self'; img-src https://i.ytimg.com 'self'; media-src 'self' asset: https://asset.localhost; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
+            "assetProtocol": {
+                "scope": ["**"],
+                "enable": true
+            },
+            "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost https://videovish.vercel.app 'self'; script-src 'self'; img-src https://i.ytimg.com 'self'; media-src 'self' asset: https://asset.localhost; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
         },
         "windows": [
             {
@@ -76,7 +52,8 @@
                 "minHeight": 480,
                 "minWidth": 480,
                 "decorations": false,
-                "titleBarStyle": "Overlay"
+                "titleBarStyle": "Overlay",
+                "useHttpsScheme": true
             }
         ]
     }

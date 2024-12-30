@@ -2,14 +2,13 @@
 import NotificationRenderer from "../NotificationRenderer.vue";
 import VideoChooser from "./VideoChooser.vue";
 import { onBeforeMount, onMounted, onUnmounted, ref, computed, watch, shallowRef } from "vue";
-import { invoke } from "@tauri-apps/api";
-import { getMatches } from "@tauri-apps/api/cli";
-import { open, save } from "@tauri-apps/api/dialog";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { getMatches } from "@tauri-apps/plugin-cli";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
-import { exists } from "@tauri-apps/api/fs";
+import { exists } from "@tauri-apps/plugin-fs";
 import { basename, downloadDir, extname, join } from "@tauri-apps/api/path";
-import { convertFileSrc } from "@tauri-apps/api/tauri";
-import { getCurrent, appWindow, getAll, WebviewWindow } from "@tauri-apps/api/window";
+import { getCurrentWebviewWindow, getAllWebviewWindows, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useDraggable, useLocalStorage, useMediaControls, useThrottleFn, useTimeoutFn } from "@vueuse/core";
 import {
     Info,
@@ -32,16 +31,19 @@ import {
 } from "lucide-vue-next";
 import { useNotification } from "../composables";
 import type { History } from "../types";
+const appWindow = getCurrentWebviewWindow();
 
 const NUM_KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 const PLAYBACK_SPEEDS = [0.07, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 5, 7.5, 10, 12, 14, 16];
 const VALID_EXTENSIONS = ["ogg", "webm", "mp4", "mkv", "mov", "mp3"];
 
 // Close all windows when the main one is closed
-getCurrent().onCloseRequested(() => {
-    getAll().forEach((window) => {
-        window.close();
-    });
+appWindow.onCloseRequested(() => {
+    getAllWebviewWindows().then((windows) =>
+        windows.forEach((window) => {
+            window.close();
+        })
+    );
 });
 
 const youtubeButton = ref<HTMLButtonElement | null>(null);
@@ -277,7 +279,7 @@ const showHelpWindow = async () => {
         playVideo();
     }
 
-    const helpWindow = WebviewWindow.getByLabel("help");
+    const helpWindow = await WebviewWindow.getByLabel("help");
 
     if (helpWindow) {
         helpWindow.close();
@@ -539,7 +541,7 @@ onUnmounted(() => {
         @local="showVideoDialog"
         @youtube="showYoutubeModal"
         @previous="continueFromPrevious"
-        @quit="getCurrent().close()"
+        @quit="getCurrentWebviewWindow().close()"
     />
     <!-- Top bar -->
     <div class="bg-charcoal min-h-[30px] flex gap-1" v-if="!isFullscreen">
@@ -579,18 +581,24 @@ onUnmounted(() => {
         <div class="fixed top-0 right-0 flex items-center h-[36px] justify-around flex-grow-0 w-[100px]">
             <Minus
                 class="cursor-pointer text-white hover:text-slate-300"
-                @click="() => getCurrent().minimize()"
+                @click="() => getCurrentWebviewWindow().minimize()"
                 :size="20"
             />
             <Square
                 class="cursor-pointer text-white hover:text-slate-300"
                 @click="
                     async () =>
-                        (await getCurrent().isMaximized()) ? getCurrent().unmaximize() : getCurrent().maximize()
+                        (await getCurrentWebviewWindow().isMaximized())
+                            ? getCurrentWebviewWindow().unmaximize()
+                            : getCurrentWebviewWindow().maximize()
                 "
                 :size="20"
             />
-            <X class="cursor-pointer text-white hover:text-slate-300" @click="() => getCurrent().close()" :size="20" />
+            <X
+                class="cursor-pointer text-white hover:text-slate-300"
+                @click="() => getCurrentWebviewWindow().close()"
+                :size="20"
+            />
         </div>
     </div>
     <!-- Playback rate -->

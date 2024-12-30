@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, onUnmounted, watch } from "vue";
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "@tauri-apps/api/core";
 import { useIntervalFn, useLocalStorage, useOnline } from "@vueuse/core";
 import { X, Search, ExternalLink } from "lucide-vue-next";
 import { Trash2 } from "lucide-vue-next";
 import { useNotification, useWindowClose } from "../composables";
-import { getCurrent } from "@tauri-apps/api/window";
 import type { Schema$SearchListResponse, Schema$SearchResult } from "youtube-api";
 import type { History } from "../types";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 const search = ref<string>("");
 const loadingText = ref<string>("");
@@ -61,7 +61,7 @@ const searchVideo = async () => {
     }).then((result) => result.json())) as Schema$SearchListResponse;
 
     searchResults.value = result.items ?? [];
-    getCurrent().setFullscreen(true);
+    getCurrentWebviewWindow().setFullscreen(true);
 };
 
 const startVideoDownload = (url: string, code: string) => {

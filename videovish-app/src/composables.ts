@@ -1,7 +1,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import { Notification, NotificationWithId } from "./types";
 import { v4 as uuid } from "uuid";
-import { WebviewWindow } from "@tauri-apps/api/window";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Ref, isRef, onMounted, onUnmounted } from "vue";
 
 const store = useLocalStorage<{
@@ -12,6 +12,7 @@ const store = useLocalStorage<{
 
 const useNotification = () => {
     const add = (options: Notification) => {
+        console.log(options);
         const uniqueId = uuid();
 
         store.value.notifications.push({
@@ -35,7 +36,10 @@ const useNotification = () => {
 
 const useWindowClose = (label: string, disableBlur: boolean | Ref<boolean> = false) => {
     const closeWindow = async () => {
-        await WebviewWindow.getByLabel(label)?.close();
+        console.log(label);
+
+        const window = await WebviewWindow.getByLabel(label);
+        window?.close();
     };
 
     const eventHandler = (e: KeyboardEvent) => {
@@ -44,17 +48,19 @@ const useWindowClose = (label: string, disableBlur: boolean | Ref<boolean> = fal
         }
     };
 
-    WebviewWindow.getByLabel(label)?.listen("tauri://blur", () => {
-        if (isRef(disableBlur)) {
-            if (!disableBlur.value) {
-                closeWindow();
+    WebviewWindow.getByLabel(label).then((result) =>
+        result?.listen("tauri://blur", () => {
+            if (isRef(disableBlur)) {
+                if (!disableBlur.value) {
+                    closeWindow();
+                }
+            } else {
+                if (!disableBlur) {
+                    closeWindow();
+                }
             }
-        } else {
-            if (!disableBlur) {
-                closeWindow();
-            }
-        }
-    });
+        })
+    );
 
     onMounted(() => {
         window.addEventListener("keydown", eventHandler);

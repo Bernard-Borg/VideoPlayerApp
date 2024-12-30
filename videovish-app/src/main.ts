@@ -16,6 +16,7 @@ const { add } = useNotification();
 const app = createApp(App);
 
 app.config.errorHandler = (err: unknown) => {
+    console.log(err);
     add({
         text: (err as Error).message,
         type: "error",

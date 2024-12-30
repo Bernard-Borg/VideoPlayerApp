@@ -6,21 +6,22 @@ use fs_extra::{
     file::{copy_with_progress, CopyOptions, TransitProcess},
 };
 use std::{fs, path::Path};
-use tauri::{
-    api::process::{Command, CommandEvent},
-    AppHandle, Manager,
-};
+use tauri_plugin_shell::process::CommandEvent;
+use tauri::Manager;
+use tauri::Emitter;
+use tauri::AppHandle;
+use tauri_plugin_shell::ShellExt;
 
 #[tauri::command]
 async fn show_help_window(handle: tauri::AppHandle) {
-    if !handle.get_window("help").is_none() {
+    if !handle.get_webview_window("help").is_none() {
         return;
     }
 
-    let _help_window = tauri::WindowBuilder::new(
+    let _help_window = tauri::WebviewWindowBuilder::new(
         &handle,
         "help", /* the unique window label */
-        tauri::WindowUrl::App("help".into()),
+        tauri::WebviewUrl::App("help".into()),
     )
     .inner_size(1024.0, 700.0)
     .min_inner_size(480.0, 480.0)
@@ -34,14 +35,14 @@ async fn show_help_window(handle: tauri::AppHandle) {
 
 #[tauri::command]
 async fn show_youtube_modal(handle: tauri::AppHandle) {
-    if !handle.get_window("youtube").is_none() {
+    if !handle.get_webview_window("youtube").is_none() {
         return;
     }
 
-    let _youtube_window = tauri::WindowBuilder::new(
+    let _youtube_window = tauri::WebviewWindowBuilder::new(
         &handle,
         "youtube", /* the unique window label */
-        tauri::WindowUrl::App("youtube".into()),
+        tauri::WebviewUrl::App("youtube".into())
     )
     .inner_size(780.0, 250.0)
     .min_inner_size(480.0, 200.0)
@@ -61,9 +62,9 @@ struct Payload {
 }
 
 #[tauri::command]
-async fn clear_cache(handle: tauri::AppHandle) -> String {
+async fn clear_cache(_handle: tauri::AppHandle) -> String {
     // Get path to youtube_downloads foldre
-    let app_data_dir = handle.path_resolver().app_data_dir().unwrap();
+    let app_data_dir = dirs::cache_dir().unwrap();
     let downloads_folder = Path::new(&app_data_dir).join("youtube_downloads");
 
     // Create folder if it doesn't exist
@@ -92,7 +93,7 @@ async fn download_video(
     quality: String,
 ) -> String {
     // Get path to youtube_downloads foldre
-    let app_data_dir = handle.path_resolver().app_data_dir().unwrap();
+    let app_data_dir = dirs::cache_dir().unwrap();
     let downloads_folder = Path::new(&app_data_dir).join("youtube_downloads");
 
     // Create folder if it doesn't exist
@@ -101,7 +102,7 @@ async fn download_video(
     }
 
     let mut vid_path: String = String::from("");
-    let glob_pattern = format!("{}/youtube_downloads/*{}*", &app_data_dir.display(), code);
+    let glob_pattern = format!("{}/youtube_downloads/*{}*", app_data_dir.display(), code);
 
     for entry in glob::glob(&glob_pattern).expect("Failed to read glob pattern") {
         match entry {
@@ -117,7 +118,7 @@ async fn download_video(
         println!("Getting video from cache");
 
         let _ = handle
-            .get_window("main")
+            .get_webview_window("main")
             .unwrap()
             .emit(
                 "video-downloaded",
@@ -142,7 +143,7 @@ async fn download_video(
         _ => quality_code = "137+251/136+251/135+251/134+251",
     }
 
-    let (mut rx, mut _child) = Command::new_sidecar("yt-dlp")
+    let (mut rx, mut _child) = handle.shell().sidecar("yt-dlp")
         .expect("Failed to create yt-dlp binary command")
         .args([
             url,
@@ -154,7 +155,7 @@ async fn download_video(
             quality_code.to_string(),
             "--print".to_string(),
             "after_move:filepath".to_string(),
-            "--no-simulate".to_string()
+            "--no-simulate".to_string(),
         ])
         .spawn()
         .expect("Failed to spawn yt-dlp");
@@ -165,7 +166,7 @@ async fn download_video(
         // read events such as stdout
         while let Some(event) = rx.recv().await {
             if let CommandEvent::Stdout(line) = event {
-                video_path = line;
+                video_path = String::from_utf8(line).expect("Our bytes should be valid utf 8");
             }
         }
 
@@ -182,7 +183,7 @@ async fn download_video(
         }
 
         let _ = handle
-            .get_window("main")
+            .get_webview_window("main")
             .unwrap()
             .emit(
                 "video-downloaded",
@@ -201,9 +202,9 @@ async fn download_video(
 }
 
 #[tauri::command]
-async fn save_youtube_video(handle: AppHandle, code: String, path_to_save: String) -> String {
+async fn save_youtube_video(_handle: AppHandle, code: String, path_to_save: String) -> String {
     // Get path to youtube_downloads folder
-    let app_data_dir = handle.path_resolver().app_data_dir().unwrap();
+    let app_data_dir = dirs::cache_dir().unwrap();
     let downloads_folder = Path::new(&app_data_dir).join("youtube_downloads");
 
     // Create folder if it doesn't exist
@@ -212,7 +213,7 @@ async fn save_youtube_video(handle: AppHandle, code: String, path_to_save: Strin
     }
 
     let mut vid_path: String = String::from("");
-    let glob_pattern = format!("{}/youtube_downloads/*{}*", &app_data_dir.display(), code);
+    let glob_pattern = format!("{}/youtube_downloads/*{}*", app_data_dir.display(), code);
 
     for entry in glob::glob(&glob_pattern).expect("Failed to read glob pattern") {
         match entry {
@@ -239,6 +240,10 @@ async fn save_youtube_video(handle: AppHandle, code: String, path_to_save: Strin
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_cli::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             show_help_window,
             show_youtube_modal,
